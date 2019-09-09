@@ -15,6 +15,8 @@ module.exports = {
 
   'users/get': { method: 'GET', protected: true, controller: userController.get },
 
+  'users/delete': { method: 'DELETE', protected: true, controller: userController.delete },
+
   'checks/create': { method: 'POST', protected: true, controller: checksController.create },
 
   'checks/list': { method: 'GET', protected: true, controller: checksController.list },

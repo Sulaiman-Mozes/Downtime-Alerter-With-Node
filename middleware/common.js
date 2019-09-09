@@ -125,4 +125,13 @@ module.exports = {
   },
 
   checkUrl: (url) => url.match(validUrl),
+
+  randomString: () => {
+    const randomValueHex = (len) => {
+      const value = crypto.randomBytes(Math.ceil(len / 2)).toString('hex');
+      return `${value.slice(0, len / 2)}${value.slice(len / 2, len).toUpperCase()}`;
+    }
+    return `${randomValueHex(6)}-${randomValueHex(6)}-${randomValueHex(6)}-${randomValueHex(6)}`
+  }
+
 }

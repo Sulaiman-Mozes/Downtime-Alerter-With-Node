@@ -76,11 +76,11 @@ module.exports = {
         name: "Monitoring App"
       }
     })
-
     const requestDetails = {
       protocol: 'https:',
       hostname: 'api.sendgrid.com',
       method: 'POST',
+      port: null,
       path: '/v3/mail/send',
       headers: {
         'Authorization': `Bearer ${config.SEND_GRID_API_KEY}`,
@@ -92,11 +92,21 @@ module.exports = {
     const req = https.request(requestDetails, (res) => {
       const statusCode = res.statusCode;
 
+      let chunks = [];
 
-      res.on("data", (data) => {
+      res.on("data", (chunk) => {
+        process.stdout.write(chunk, statusCode);
+        chunks.push(chunk);
         return statusCode === 200 || statusCode === 201 || statusCode === 202
-          ? callback(null, { data, statusCode })
-          : callback({ data, statusCode }, null);
+        ? callback(null, { body, statusCode })
+        : callback({ body, statusCode }, null);
+      });
+
+      res.on("end", () => {
+        const body = Buffer.concat(chunks).toString();
+        return statusCode === 200 || statusCode === 201 || statusCode === 202
+          ? callback(null, { body, statusCode })
+          : callback({ body, statusCode }, null);
       });
 
     });

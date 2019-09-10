@@ -3,8 +3,18 @@ const middleWare = require('../../middleware/common');
 const { stringValidator, boolValidator,
   emailValidator } = require('../../middleware/validator');
 
+
+const fileExits = async (dir, email) => {
+  try {
+    const data = await _data.read('users', email);
+    return data;
+  } catch (error) {
+    return false;
+  }
+}
+
 module.exports = {
-  create: (req, res) => {
+  create: async (req, res) => {
     const { username, password, email, tosAgreement } = req.body;
 
     if (!stringValidator(username) || !stringValidator(password) || !stringValidator(email)
@@ -12,8 +22,8 @@ module.exports = {
       return res.status(400).json({ err: 'All Feilds are Required' });
     }
 
-    _data.read('users', email, (err, data) => {
-      if (data) {
+    try {
+      if ((await fileExits('users', email))) {
         return res.status(400).json({ err: "user account already exists" });
       }
 
@@ -26,107 +36,123 @@ module.exports = {
         tosAgreement,
         checks: [],
       }
-      _data.create('users', email, userObject, (err) => {
-        if (err) {
-          return res.status(500).json({
-            err: "unable to create user account, try again later"
-          });
-        }
-        return res.status(201).json({
-          user: { username, email }, msg: "Account successfully created"
-        });
-      })
-    });
+
+      await _data.create('users', email, userObject);
+
+      return res.status(201).json({
+        user: { username, email }, msg: "Account successfully created"
+      });
+    } catch (error) {
+
+      return res.status(500).json({
+        err: "unable to create user account, try again later",
+        error
+      });
+    }
 
   },
-  login: (req, res) => {
+  login: async (req, res) => {
     const { password, email } = req.body;
 
     if (!stringValidator(email) || !stringValidator(password)) {
       return res.status(400).json({ err: 'All Feilds are Required' });
     }
 
-    _data.read('users', email, (err, data) => {
-      if (err && !data) {
+    try {
+      let data = await fileExits('users', email);
+      if (!data) {
         return res.status(400).json({ err: "Authentication Failed, inavlid email or password" });
       }
+
       data = JSON.parse(data);
 
-      const token = middleWare.createToken({ email: data.email, username: data.username }, 1440);
+      const token = middleWare.createToken({ email: data.email, username: data.username }, 60 * 60 * 24);
 
       const userObject = {
         email: data.email,
         username: data.email,
         token
       }
+
       return middleWare.verify(data.salt, data.password, password) !== true
         ? res.status(400).json({ err: "Authentication Failed, invalid email or password" })
         : res.status(200).json(userObject);
-    });
+
+    } catch (error) {
+      return res.status(500).json({ msg: "An Error Occurred try again later" });
+    }
+
   },
 
-  delete: (req, res) => {
+  delete: async (req, res) => {
     const { email } = req.user_data;
-
-    _data.read('users', email, (err, data) => {
-      if (err && !data) {
-        return res.status(404).json({ err: "user doesnot exist" });
-      }
-      _data.delete('users', email, (error) => {
-        if (error) {
-          return res.status(500).json({ msg: "unable delete user account" });
-        }
-        return res.status(204).json({ msg: "user account delete successfully" });
-      });
-    });
+    try {
+      let data = await fileExits('users', email);
+      if (!data) {
+        return res.status(400).json({ err: "User Doesnot Exist" });
+      };
+      await _data.delete('users', email);
+      return res.status(204).json({ msg: "user account delete successfully" });
+    } catch (error) {
+      return res.status(500).json({ msg: "unable delete user account" });
+    }
   },
 
-  get: (req, res) => {
-
-    const { email } = req.user_data;
-
-    _data.read('users', email, (err, data) => {
-      if (err) {
-        return res.status(404).json({ err: "user doesnot exist" });
-      }
+  get: async (req, res) => {
+    try {
+      const { email } = req.user_data;
+      const data = await _data.read('users', email);
       return res.status(200).json(data);
-    });
+    } catch (error) {
+      return res.status(404).json({ msg: "user doesnot exist", error });
+    }
   },
-  list: (req, res) => {
-    _data.list('users', (err, data) => {
-      if (err) {
-        return res.status(500).json({ err: "unable to get all users" });
-      }
+
+  list: async (req, res) => {
+    try {
+      const data = await _data.list('users');
       return res.status(200).json(data);
-    })
+    } catch (error) {
+      return res.status(500).json({ err: "unable to get all users" });
+    }
   },
-  update: (req, res) => {
-    const { username, password } = req.body;
 
-    const { email } = req.user_data;
+  update: async (req, res) => {
+    try {
 
-    _data.read('users', email, (err, data) => {
+      const { username, password } = req.body;
+
+      const { email } = req.user_data;
+
+      let data = await fileExits('users', email);
+
+      data = JSON.parse(data);
+
       if (!data) {
         return res.status(400).json({ err: "user account doesnot exists" });
       }
 
-      const { passwordHash, salt } = middleWare.hash(password);
       const userObject = {
         username: username.trim(),
-        email: email.trim(),
-        password: passwordHash,
-        salt,
       }
-      _data.create('users', email, userObject, (err) => {
-        if (err) {
-          return res.status(500).json({
-            err: "unable to update user account, try again later"
-          });
-        }
-        return res.status(201).json({
-          user: { username, email }, msg: "Account successfully updated"
-        });
+
+      if (!stringValidator(password)) {
+        const { passwordHash, salt } = middleWare.hash(password);
+        userObject.password = passwordHash;
+        userObject.salt = salt;
+      }
+
+      await _data.update('users', email, { ...data, ...userObject });
+      const resp = JSON.parse(await fileExits('users', email));
+
+      return res.status(201).json({
+        user: { username: resp.username, email: resp.email }, msg: "Account successfully updated"
       });
-    });
+
+    } catch (error) {
+      return res.status(500).json({
+        err: "unable to update user account, try again later"
+      });
+    }
   },
 };

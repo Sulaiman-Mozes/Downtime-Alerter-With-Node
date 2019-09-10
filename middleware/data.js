@@ -1,70 +1,67 @@
 const fs = require('fs');
 const path = require('path');
 
-const baseDir = path.join(__dirname, '../.data/');
+const baseDir = path.join(__dirname, '../.data');
 
 module.exports = {
-  create: (dir, filename, data, callback) => {
+  create: (dir, filename, data) => new Promise((resolve, reject) => {
     fs.open(`${baseDir}/${dir}/${filename}.json`, 'wx', (err, fileDescriptor) => {
       if (err) {
-        return callback(true)
+        resolve(err)
       }
       try {
         const stringData = JSON.stringify(data);
-        fs.writeFileSync(fileDescriptor, stringData);
+        const res = fs.writeFileSync(fileDescriptor, stringData);
         fs.closeSync(fileDescriptor);
-        return callback(false);
+        resolve(res);
 
       } catch (error) {
-        return callback(true);
+        reject(error);
       }
-    });
-  },
+    })
+  }),
 
-  read: (dir, filename, callback) => {
+  read: (dir, filename) => new Promise((resolve, reject) => {
     fs.readFile(`${baseDir}/${dir}/${filename}.json`, 'utf8', (err, data) => {
-      return err ? callback(true, null) : callback(false, data);
+      err ? reject(err) : resolve(data);
     });
-  },
+  }),
 
-  update: (dir, filename, data, callback) => {
+  update: (dir, filename, data) => new Promise((resolve, reject) => {
     fs.open(`${baseDir}/${dir}/${filename}.json`, 'r+', (err, fileDescriptor) => {
       if (err) {
-        return callback(true)
+        reject(err)
       }
       try {
         const stringData = JSON.stringify(data);
 
         fs.ftruncateSync(fileDescriptor);
-        fs.writeFileSync(fileDescriptor, stringData);
+        const res = fs.writeFileSync(fileDescriptor, stringData);
         fs.closeSync(fileDescriptor);
-        return callback(false);
+        return resolve(res);
 
       } catch (error) {
-        return callback(true);
+        return reject(err)
       }
     });
-  },
+  }),
 
-  delete: (dir, filename, callback) => {
+  delete: (dir, filename) => new Promise((resolve, reject) => {
     fs.unlink(`${baseDir}/${dir}/${filename}.json`, (err) => {
-      if (err) {
-        return callback(true);
-      }
-      return callback(false);
+      err ? reject(err) : resolve('succesfull');
     });
-  },
+  }),
 
-  list: (dir, callback) => {
+  list: (dir) => new Promise((resolve, reject) => {
     fs.readdir(`${baseDir}/${dir}/`, (err, data) => {
       if (err) {
-        return (err, data);
+        reject(err);
       }
       const trimmedFiles = [];
       data.forEach(file => {
         trimmedFiles.push(file.replace('.json', ''))
       })
-      return callback(err, trimmedFiles);
+      return resolve(trimmedFiles);
     });
-  }
+  })
 };

@@ -96,10 +96,6 @@ module.exports = {
 
       res.on("data", (chunk) => {
         process.stdout.write(chunk, statusCode);
-        chunks.push(chunk);
-        return statusCode === 200 || statusCode === 201 || statusCode === 202
-        ? callback(null, { body, statusCode })
-        : callback({ body, statusCode }, null);
       });
 
       res.on("end", () => {

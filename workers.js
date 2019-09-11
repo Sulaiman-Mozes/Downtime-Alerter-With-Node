@@ -132,7 +132,7 @@ module.exports = function () {
       ${protocol}://${url} is now up`
 
       services.sendGridEmails(email, "Website is up", message, (error, data) => {
-        if (error) throw error;
+        if (error) console.log(error);
       });
     }
     const newCheckdata = checkData;
@@ -144,7 +144,7 @@ module.exports = function () {
       timeOfCheck: newCheckdata.lastChecked, user: email, method
     }
 
-    // await _data.update('checks', checkId, newCheckdata);
+    await _data.update('checks', checkId, newCheckdata);
 
     this.log(logObject);
   };
@@ -193,7 +193,6 @@ module.exports = function () {
       this.startChecks();
     }, 1000 * 60);
   };
-
 
   this.logRotationLoop = () => {
     setInterval(() => {
